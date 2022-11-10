@@ -5,18 +5,6 @@ Examples shown in the R Journal manuscript
 ``` r
 library(openalexR)
 library(tidyverse)
-```
-
-    ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.2 ──
-    ## ✔ ggplot2 3.3.6.9000     ✔ purrr   0.3.4     
-    ## ✔ tibble  3.1.8          ✔ dplyr   1.0.10    
-    ## ✔ tidyr   1.2.1          ✔ stringr 1.4.1     
-    ## ✔ readr   2.1.2          ✔ forcats 0.5.2     
-    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-    ## ✖ dplyr::filter() masks stats::filter()
-    ## ✖ dplyr::lag()    masks stats::lag()
-
-``` r
 library(knitr)
 library(gghighlight)
 theme_set(
@@ -221,6 +209,213 @@ ggsave("images/biblio-journals.png", biblio_journal,
 )
 ```
 
+## Two most cited articles and their citations and references
+
 ``` r
-knitr::knit_exit()
+library(ggraph)
+library(tidygraph)
+
+seminal_works <- slice_max(biblio_works, cited_by_count, n = 8)
+seminal_works$display_name
 ```
+
+    ## [1] "Software survey: VOSviewer, a computer program for bibliometric mapping"                          
+    ## [2] "Comparison of PubMed, Scopus, Web of Science, and Google Scholar: strengths and weaknesses"       
+    ## [3] "Scope and Impact of Financial Conflicts of Interest in Biomedical Research"                       
+    ## [4] "Empirical Studies Assessing the Quality of Health Information for Consumers on the World Wide Web"
+    ## [5] "Bibliometric Methods in Management and Organization"                                              
+    ## [6] "The journal coverage of Web of Science and Scopus: a comparative analysis"                        
+    ## [7] "How popular is your paper? An empirical study of the citation distribution"                       
+    ## [8] "Bibliometrics: The Leiden Manifesto for research metrics"
+
+``` r
+work_labels <- seminal_works[1:2, ] |>
+  show_works() |>
+  mutate(label = paste(word(first_author, 3, -1), "et al.")) |>
+  select(id, label) |>
+  deframe()
+
+work_labels
+```
+
+    ##      W2150220236      W2120109270 
+    ## "van Eck et al." "Falagas et al."
+
+``` r
+snowball_docs <- oa_snowball(
+  identifier = seminal_works$id[1:2],
+  verbose = TRUE
+)
+```
+
+    ## Requesting url: https://api.openalex.org/works?filter=openalex_id%3Ahttps%3A%2F%2Fopenalex.org%2FW2150220236%7Chttps%3A%2F%2Fopenalex.org%2FW2120109270
+
+    ## Getting 1 page of results with a total of 2 records...
+
+    ## Collecting all documents citing the target papers...
+
+    ## Requesting url: https://api.openalex.org/works?filter=cites%3AW2150220236%7CW2120109270
+
+    ## Getting 34 pages of results with a total of 6779 records...
+
+    ## Collecting all documents cited by the target papers...
+
+    ## Requesting url: https://api.openalex.org/works?filter=cited_by%3AW2150220236%7CW2120109270
+
+    ## Getting 1 page of results with a total of 40 records...
+
+``` r
+snow_graph <- as_tbl_graph(snowball_docs)
+
+snowball_small <- snowball_docs |>
+  as_tbl_graph() |>
+  slice(1:500)
+
+g_citation <- ggraph(graph = snow_graph, layout = "stress") +
+  geom_edge_link(alpha = 0.02) +
+  geom_node_point(
+    data = ~ filter(.x, !oa_input),
+    mapping = aes(size = cited_by_count),
+    fill = "#a3ad62",
+    shape = 21, color = "white"
+  ) +
+  geom_node_point(
+    data = ~ filter(.x, oa_input),
+    mapping = aes(size = cited_by_count),
+    fill = "#d46780",
+    shape = 21, color = "white"
+  ) +
+  theme_graph() +
+  theme(legend.position = "bottom") +
+  theme(
+    plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    strip.background = element_rect(fill = NA, color = "grey20")
+  ) +
+  guides(fill = "none", size = "none") +
+  geom_node_label(aes(filter = oa_input, label = work_labels[id]), nudge_y = 0.2, size = 3)
+g_citation
+```
+
+<img src="paper-examples_files/figure-gfm/snowball-1.png" width="100%" />
+
+``` r
+ggsave("images/citation-graph.png", g_citation,
+  height = 5, width = 8
+)
+# save.image("data/oarj.rdata")
+```
+
+``` r
+session_info()
+```
+
+    ## ─ Session info ───────────────────────────────────────────────────────────────
+    ##  setting  value
+    ##  version  R version 4.2.1 (2022-06-23)
+    ##  os       macOS Big Sur ... 10.16
+    ##  system   x86_64, darwin17.0
+    ##  ui       X11
+    ##  language (EN)
+    ##  collate  en_US.UTF-8
+    ##  ctype    en_US.UTF-8
+    ##  tz       America/New_York
+    ##  date     2022-11-10
+    ##  pandoc   2.18 @ /Applications/RStudio.app/Contents/MacOS/quarto/bin/tools/ (via rmarkdown)
+    ## 
+    ## ─ Packages ───────────────────────────────────────────────────────────────────
+    ##  package       * version    date (UTC) lib source
+    ##  assertthat      0.2.1      2019-03-21 [1] CRAN (R 4.2.0)
+    ##  backports       1.4.1      2021-12-13 [1] CRAN (R 4.2.0)
+    ##  broom           1.0.1      2022-08-29 [1] CRAN (R 4.2.0)
+    ##  cachem          1.0.6      2021-08-19 [1] CRAN (R 4.2.0)
+    ##  callr           3.7.2      2022-08-22 [1] CRAN (R 4.2.0)
+    ##  cellranger      1.1.0      2016-07-27 [1] CRAN (R 4.2.0)
+    ##  cli             3.4.1      2022-09-23 [1] CRAN (R 4.2.0)
+    ##  codetools       0.2-18     2020-11-04 [1] CRAN (R 4.2.1)
+    ##  colorspace      2.0-3      2022-02-21 [1] CRAN (R 4.2.0)
+    ##  crayon          1.5.1      2022-03-26 [1] CRAN (R 4.2.0)
+    ##  DBI             1.1.3      2022-06-18 [1] CRAN (R 4.2.0)
+    ##  dbplyr          2.2.1      2022-06-27 [1] CRAN (R 4.2.0)
+    ##  devtools      * 2.4.4      2022-07-20 [1] CRAN (R 4.2.0)
+    ##  digest          0.6.29     2021-12-01 [1] CRAN (R 4.2.0)
+    ##  dplyr         * 1.0.10     2022-09-01 [1] CRAN (R 4.2.0)
+    ##  ellipsis        0.3.2      2021-04-29 [1] CRAN (R 4.2.0)
+    ##  evaluate        0.16       2022-08-09 [1] CRAN (R 4.2.0)
+    ##  fansi           1.0.3      2022-03-24 [1] CRAN (R 4.2.0)
+    ##  farver          2.1.1      2022-07-06 [1] CRAN (R 4.2.0)
+    ##  fastmap         1.1.0      2021-01-25 [1] CRAN (R 4.2.0)
+    ##  forcats       * 0.5.2      2022-08-19 [1] CRAN (R 4.2.0)
+    ##  fs              1.5.2      2021-12-08 [1] CRAN (R 4.2.0)
+    ##  gargle          1.2.0      2021-07-02 [1] CRAN (R 4.2.0)
+    ##  generics        0.1.3      2022-07-05 [1] CRAN (R 4.2.0)
+    ##  gghighlight   * 0.4.0      2022-10-16 [1] CRAN (R 4.2.0)
+    ##  ggplot2       * 3.3.6.9000 2022-10-14 [1] Github (tidyverse/ggplot2@a58b48c)
+    ##  glue            1.6.2      2022-02-24 [1] CRAN (R 4.2.0)
+    ##  googledrive     2.0.0      2021-07-08 [1] CRAN (R 4.2.0)
+    ##  googlesheets4   1.0.1      2022-08-13 [1] CRAN (R 4.2.0)
+    ##  gtable          0.3.1      2022-09-01 [1] CRAN (R 4.2.0)
+    ##  haven           2.5.1      2022-08-22 [1] CRAN (R 4.2.0)
+    ##  highr           0.9        2021-04-16 [1] CRAN (R 4.2.0)
+    ##  hms             1.1.2      2022-08-19 [1] CRAN (R 4.2.0)
+    ##  htmltools       0.5.3      2022-07-18 [1] CRAN (R 4.2.0)
+    ##  htmlwidgets     1.5.4      2021-09-08 [1] CRAN (R 4.2.0)
+    ##  httpuv          1.6.6      2022-09-08 [1] CRAN (R 4.2.0)
+    ##  httr            1.4.4      2022-08-17 [1] CRAN (R 4.2.0)
+    ##  jsonlite        1.8.0      2022-02-22 [1] CRAN (R 4.2.0)
+    ##  knitr         * 1.40       2022-08-24 [1] CRAN (R 4.2.0)
+    ##  labeling        0.4.2      2020-10-20 [1] CRAN (R 4.2.0)
+    ##  later           1.3.0      2021-08-18 [1] CRAN (R 4.2.0)
+    ##  lifecycle       1.0.2      2022-09-09 [1] CRAN (R 4.2.0)
+    ##  lubridate       1.8.0      2021-10-07 [1] CRAN (R 4.2.0)
+    ##  magrittr        2.0.3      2022-03-30 [1] CRAN (R 4.2.0)
+    ##  memoise         2.0.1      2021-11-26 [1] CRAN (R 4.2.0)
+    ##  mime            0.12       2021-09-28 [1] CRAN (R 4.2.0)
+    ##  miniUI          0.1.1.1    2018-05-18 [1] CRAN (R 4.2.0)
+    ##  modelr          0.1.9      2022-08-19 [1] CRAN (R 4.2.0)
+    ##  munsell         0.5.0      2018-06-12 [1] CRAN (R 4.2.0)
+    ##  openalexR     * 1.0.2.9000 2022-11-09 [1] local
+    ##  pillar          1.8.1      2022-08-19 [1] CRAN (R 4.2.0)
+    ##  pkgbuild        1.3.1      2021-12-20 [1] CRAN (R 4.2.0)
+    ##  pkgconfig       2.0.3      2019-09-22 [1] CRAN (R 4.2.0)
+    ##  pkgload         1.3.0      2022-06-27 [1] CRAN (R 4.2.0)
+    ##  prettyunits     1.1.1      2020-01-24 [1] CRAN (R 4.2.0)
+    ##  processx        3.7.0      2022-07-07 [1] CRAN (R 4.2.0)
+    ##  profvis         0.3.7      2020-11-02 [1] CRAN (R 4.2.0)
+    ##  promises        1.2.0.1    2021-02-11 [1] CRAN (R 4.2.0)
+    ##  ps              1.7.1      2022-06-18 [1] CRAN (R 4.2.0)
+    ##  purrr         * 0.3.4      2020-04-17 [1] CRAN (R 4.2.0)
+    ##  R6              2.5.1      2021-08-19 [1] CRAN (R 4.2.0)
+    ##  RColorBrewer    1.1-3      2022-04-03 [1] CRAN (R 4.2.0)
+    ##  Rcpp            1.0.9      2022-07-08 [1] CRAN (R 4.2.0)
+    ##  readr         * 2.1.2      2022-01-30 [1] CRAN (R 4.2.0)
+    ##  readxl          1.4.1      2022-08-17 [1] CRAN (R 4.2.0)
+    ##  remotes         2.4.2      2021-11-30 [1] CRAN (R 4.2.0)
+    ##  reprex          2.0.2      2022-08-17 [1] CRAN (R 4.2.0)
+    ##  rlang           1.0.6      2022-09-24 [1] CRAN (R 4.2.0)
+    ##  rmarkdown       2.16       2022-08-24 [1] CRAN (R 4.2.0)
+    ##  rstudioapi      0.14       2022-08-22 [1] CRAN (R 4.2.0)
+    ##  rvest           1.0.3      2022-08-19 [1] CRAN (R 4.2.0)
+    ##  scales          1.2.1      2022-08-20 [1] CRAN (R 4.2.0)
+    ##  sessioninfo     1.2.2      2021-12-06 [1] CRAN (R 4.2.0)
+    ##  shiny           1.7.2      2022-07-19 [1] CRAN (R 4.2.0)
+    ##  stringi         1.7.8      2022-07-11 [1] CRAN (R 4.2.0)
+    ##  stringr       * 1.4.1      2022-08-20 [1] CRAN (R 4.2.0)
+    ##  tibble        * 3.1.8      2022-07-22 [1] CRAN (R 4.2.0)
+    ##  tidyr         * 1.2.1      2022-09-08 [1] CRAN (R 4.2.0)
+    ##  tidyselect      1.1.2      2022-02-21 [1] CRAN (R 4.2.0)
+    ##  tidyverse     * 1.3.2      2022-07-18 [1] CRAN (R 4.2.0)
+    ##  tzdb            0.3.0      2022-03-28 [1] CRAN (R 4.2.0)
+    ##  urlchecker      1.0.1      2021-11-30 [1] CRAN (R 4.2.0)
+    ##  usethis       * 2.1.6      2022-05-25 [1] CRAN (R 4.2.0)
+    ##  utf8            1.2.2      2021-07-24 [1] CRAN (R 4.2.0)
+    ##  vctrs           0.4.2      2022-09-29 [1] CRAN (R 4.2.0)
+    ##  withr           2.5.0      2022-03-03 [1] CRAN (R 4.2.0)
+    ##  xfun            0.33       2022-09-12 [1] CRAN (R 4.2.0)
+    ##  xml2            1.3.3      2021-11-30 [1] CRAN (R 4.2.0)
+    ##  xtable          1.8-4      2019-04-21 [1] CRAN (R 4.2.0)
+    ##  yaml            2.3.5      2022-02-21 [1] CRAN (R 4.2.0)
+    ## 
+    ##  [1] /Library/Frameworks/R.framework/Versions/4.2/Resources/library
+    ## 
+    ## ──────────────────────────────────────────────────────────────────────────────
