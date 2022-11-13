@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE, cache = params$cache, dpi = 150, out.width = 
 ```
 
 ```{r eval=TRUE}
-
 library(openalexR)
 library(tidyverse)
 library(knitr)
