@@ -1,6 +1,136 @@
 # oarj
 Examples of openalexR submitted to R Journal
 
+## A case study with OpenAlex data
+
+we download all bibliographic records associated to the topic bibliometrics.
+
+```{r}
+library(openalexR)
+library(dplyr)
+library(knitr)
+library(gghighlight)
+library(ggplot2)
+library(tidyr)
+library(ggraph)
+library(tidygraph)
+library(ggtext)
+library(wordcloud)
+library(treemapify)
+library(forcats)
+library(hrbrthemes)
+
+```
+
+To do this, we define a query on the entity "works" by filtering through the concept "bibliometrics" associated with the id https://openalex.org/C178315738.
+
+Let us first briefly describe the concept "bibliometrics".
+
+```{r}
+concept <- oa_fetch(
+  entity = "concepts",
+  identifier  = "https://openalex.org/C178315738",
+  count_only = FALSE,
+  verbose = FALSE
+)
+
+concept %>% 
+  select(.data$description) %>% 
+  kable()
+```
+
+Here the list of the ancestor concepts:
+
+```{r}
+concept %>% 
+  select(.data$ancestors) %>% 
+  tidyr::unnest(.data$ancestors) %>% 
+  select(!wikidata) %>% 
+  kable(digits = 3)
+```
+
+Here the list of the equal-level related concepts
+
+```{r}
+concept %>% 
+  select(.data$related_concepts) %>% 
+  tidyr::unnest(.data$related_concepts) %>% 
+  select(!wikidata) %>% 
+  filter(level==2) %>% 
+  kable(digits = 3)
+```
+
+Here the list of the descendant concepts:
+
+```{r}
+concept %>% 
+  select(.data$related_concepts) %>% 
+  tidyr::unnest(.data$related_concepts) %>% 
+  select(!wikidata) %>% 
+  filter(level>2) %>% 
+  kable(digits = 3)
+```
+
+We can obtain information on the equal level concepts with the most works
+
+```{r}
+related<- concept%>% 
+  select(.data$related_concepts) %>% 
+  tidyr::unnest(.data$related_concepts) %>%
+  filter(level==2)
+```
+
+```{r}
+concept_df<- oa_fetch(
+  entity = "concepts",
+  identifier = c(concept$id,related$id)
+)
+
+```
+
+
+```{r}
+concept_df %>%
+  select(display_name, counts_by_year) %>%
+  tidyr::unnest(counts_by_year) %>%
+  filter(year < 2022) %>%
+  ggplot() +
+  aes(x = year, y =log( works_count), color = display_name) +
+  facet_wrap(~display_name) +
+  geom_line(size = 0.7) +
+  #scale_color_brewer(palette = "Dark2") +
+  labs(
+    x = NULL, y = "log(Works count)",
+    #title = "We know what happened in 2020"
+  ) +
+  guides(color = "none")+
+  gghighlight(max(works_count) >1, label_params=list(max.overlaps=0))
+
+```
+
+Now we check how many records the query returns by setting the count.only parameter equal to TRUE
+
+```{r}
+oa_fetch(
+  entity = "works",
+  concept.id = "https://openalex.org/C178315738",
+  count_only = TRUE,
+  verbose = FALSE
+)
+```
+
+Then we proceed to download the metadata related to the collection
+
+```{r eval=FALSE, include=FALSE}
+df <- oa_fetch(
+  entity = "works",
+  concept.id = "https://openalex.org/C178315738",
+  abstract = TRUE,
+  count_only = FALSE,
+  verbose = TRUE
+)
+```
+
 We can obtain information on the Most relevant Journal
 
 ```{r}
