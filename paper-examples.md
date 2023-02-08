@@ -2,6 +2,13 @@ Examples shown in the R Journal manuscript
 ================
 2022-11-10
 
+**NOTE**: To replicate the analyses proposed in the manuscript, please
+use the downloaded data at `data/oarj.rdata`. Because bibliographic
+metadata change at high frequency, downloads made on different days
+could provide slightly different results (*e.g.*, number of citations,
+number of published articles, *etc.*). The `oarj.rdata` file contains
+all the objects we needed for this analysis.
+
 ``` r
 set.seed(1234)
 library(openalexR)
@@ -357,9 +364,8 @@ N-grams
 # options("oa_ngrams.message.curlv5" = TRUE)
 ngrams_data <- oa_ngrams(sample(biblio_works$id, 1000), verbose = TRUE)
 top_10 <- do.call(rbind.data.frame, ngrams_data$ngrams) |>
-  filter(ngram_tokens == 2) |>
+  filter(ngram_tokens == 2, nchar(ngram) > 10) |>
   arrange(desc(ngram_count)) |>
-  filter(nchar(ngram) > 10) |>
   slice_max(ngram_count, n = 10, with_ties = FALSE)
 
 top_10
