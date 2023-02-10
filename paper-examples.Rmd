@@ -37,7 +37,8 @@ theme_set(
 
 ## Bibliometrics concept
 ```{r load-data, include = FALSE, eval=FALSE}
-# load("data/oarj.rdata")
+load("data/oarj.rdata")
+# biblio_works <- readRDS("data/biblio-works.rds")
 ```
 
 ```{r}
@@ -253,9 +254,9 @@ g_citation
 
 N-grams
 
-```{r n-grams, fig.show='hide'}
-# options("oa_ngrams.message.curlv5" = TRUE)
-ngrams_data <- oa_ngrams(sample(biblio_works$id, 1000), verbose = TRUE)
+```{r n-grams, fig.show='hide', eval=FALSE}
+options("oa_ngrams.message.curlv5" = TRUE)
+ngrams_data <- oa_ngrams(unique(biblio_works$id), verbose = TRUE)
 top_10 <- do.call(rbind.data.frame, ngrams_data$ngrams) |>
   filter(ngram_tokens == 2, nchar(ngram) > 10) |>
   arrange(desc(ngram_count)) |>
